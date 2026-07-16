@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Course Preference Portal — Fall 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com/">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#0F1B35;
+    --ink-soft:#2D3A55;
+    --paper-card:#FFFFFF;
+    --line:#C8CFEA;
+    --teal:#6C3FEB;
+    --teal-deep:#4D2CB5;
+    --amber:#FFF0B0;
+    --amber-line:#F5B800;
+    --red:#E02B55;
+    --red-bg:#FFE8EE;
+    --green:#0E8E5D;
+    --green-bg:#E4F7EE;
+    --muted:#7A849A;
+    --gradient-topbar: linear-gradient(135deg, #1A0B40 0%, #0F2560 50%, #0A3D5E 100%);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;max-width:100%;overflow-x:hidden;}
+  body{
+    background: linear-gradient(160deg, #EEF0FF 0%, #F5F0FF 40%, #EFF8FF 100%);
+    min-height:100vh;
+    color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding-bottom:60px;
+  }
+  .topbar{
+    position:sticky; top:0; z-index:40;
+    background: var(--gradient-topbar);
+    color:#EDEFF3;
+    padding:16px 16px;
+    box-shadow: 0 4px 24px rgba(108,63,235,0.35), 0 1px 0 rgba(255,255,255,0.08);
+  }
+  .topbar-inner{max-width:820px; margin:0 auto; display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;}
+  h1{font-family:'Source Serif 4', Georgia, serif; font-weight:600; font-size:21px; margin:0 0 2px 0;}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.08em; text-transform:uppercase; opacity:.7; margin:0;}
+
+  .wrap{max-width:820px; margin:24px auto; padding:0 16px;}
+  .card{background:var(--paper-card); border:1px solid var(--line); border-radius:14px; padding:22px 20px; margin-bottom:18px; box-shadow:0 2px 10px rgba(20,20,60,.04);}
+  .card h2{font-family:'Source Serif 4', Georgia, serif; font-size:17px; margin:0 0 4px 0;}
+  .hint{color:var(--muted); font-size:12.5px; margin:0 0 16px 0;}
+
+  label{display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:5px;}
+  input[type=text], select{
+    width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+    font-family:inherit; font-size:14px; background:#fff; color:var(--ink);
+  }
+  input[type=text]:focus, select:focus{outline:none; border-color:var(--teal); box-shadow:0 0 0 3px rgba(108,63,235,.12);}
+  .row{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;}
+  @media(max-width:600px){.row{grid-template-columns:1fr;}}
+
+
+  .course-search{margin-bottom:10px;}
+  .dept-heading{font-size:11px; font-weight:700; letter-spacing:.02em; text-transform:uppercase; color:#5C4A9E; background:#F4F1FA; padding:6px 8px; border-radius:5px; margin:14px 0 6px 0;}
+  .course-list{max-height:420px; overflow-y:auto; border:1px solid var(--line); border-radius:10px; padding:8px 10px;}
+  .course-item{
+    display:flex; align-items:flex-start; gap:9px; padding:8px 6px; border-bottom:1px solid #F0F1F7; cursor:pointer;
+  }
+  .course-item:last-child{border-bottom:none;}
+  .course-item:hover{background:#FAFAFF;}
+  .course-item input{margin-top:3px; width:16px; height:16px; accent-color:var(--teal);}
+  .course-item .code{font-family:'IBM Plex Mono',monospace; font-weight:600; font-size:12.5px; color:var(--teal-deep); min-width:62px;}
+  .course-item .name{font-size:13px; color:var(--ink-soft);}
+  .course-item .cr{margin-left:auto; font-size:11px; color:var(--muted); white-space:nowrap;}
+  .course-item.disabled{opacity:.35; cursor:not-allowed;}
+
+  .counter{display:flex; align-items:center; justify-content:space-between; margin:10px 0 2px 0;}
+  .count-badge{font-family:'IBM Plex Mono',monospace; font-size:12px; padding:4px 10px; border-radius:20px; background:var(--red-bg); color:var(--red); font-weight:600;}
+  .count-badge.ok{background:var(--green-bg); color:var(--green);}
+
+  .submit-btn{
+    width:100%; padding:14px; border:none; border-radius:10px; margin-top:6px;
+    background:linear-gradient(135deg,#6C3FEB,#A855F7); color:#fff; font-weight:600; font-size:15px;
+    cursor:pointer; box-shadow:0 4px 16px rgba(108,63,235,.3);
+  }
+  .submit-btn:disabled{opacity:.45; cursor:not-allowed; box-shadow:none;}
+  .submit-btn:not(:disabled):hover{filter:brightness(1.06);}
+
+  .msg{padding:10px 14px; border-radius:8px; font-size:13px; margin-top:12px; display:none;}
+  .msg.error{background:var(--red-bg); color:var(--red); display:block;}
+  .msg.success{background:var(--green-bg); color:var(--green); display:block;}
+
+  .success-screen{text-align:center; padding:40px 20px;}
+  .success-screen .tick{font-size:44px; margin-bottom:10px;}
+  .success-screen h2{margin-bottom:6px;}
+  .success-screen p{color:var(--muted); font-size:13.5px;}
+  .again-btn{margin-top:18px; padding:10px 18px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600; color:var(--ink-soft);}
+
+  /* ── Admin ── */
+  #adminGate{position:fixed; inset:0; background:rgba(15,27,53,.55); display:none; align-items:center; justify-content:center; z-index:100;}
+  #adminGate .box{background:#fff; padding:26px 24px; border-radius:12px; width:300px; max-width:90vw;}
+  #adminGate h3{margin:0 0 12px 0; font-size:15px;}
+  #adminGate input{margin-bottom:10px;}
+  #adminGate .row2{display:flex; gap:8px;}
+  #adminGate button{flex:1; padding:9px; border-radius:7px; border:1px solid var(--line); background:#fff; cursor:pointer; font-weight:600;}
+  #adminGate button.primary{background:var(--teal); color:#fff; border-color:var(--teal);}
+
+  #adminPanel{display:none;}
+  .admin-header{display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px;}
+  .export-btn{padding:10px 16px; border-radius:8px; border:none; background:var(--green); color:#fff; font-weight:600; cursor:pointer; font-size:13px;}
+  .close-admin{padding:10px 16px; border-radius:8px; border:1px solid var(--line); background:#fff; cursor:pointer; font-size:13px; font-weight:600;}
+  table.admin-table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.admin-table th{background:#F4F1FA; color:#5C4A9E; text-align:left; padding:8px; font-size:11px; text-transform:uppercase; letter-spacing:.02em;}
+  table.admin-table td{padding:8px; border-bottom:1px solid #EEE; vertical-align:top;}
+  table.admin-table tr:hover td{background:#FAFAFF;}
+  .pill{display:inline-block; background:#F0EEFF; color:var(--teal-deep); border-radius:12px; padding:2px 8px; font-size:11px; margin:2px 3px 2px 0; font-family:'IBM Plex Mono',monospace;}
+  .admin-stats{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+  .stat-mini{background:#F4F1FA; border-radius:8px; padding:8px 12px; font-size:12px; color:var(--ink-soft);}
+  .stat-mini b{display:block; font-size:18px; color:var(--teal-deep); font-family:'IBM Plex Mono',monospace;}
+  .footer-link{text-align:center; margin-top:24px;}
+  .footer-link a{font-size:10px; color:rgba(15,27,53,.2); text-decoration:none;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div>
+      <h1>Course Preference Portal</h1>
+      <p class="eyebrow">Fall 2026 · EE &amp; CE Department</p>
+    </div>
+    <button id="adminTopBtn" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#EDEFF3;font-weight:600;font-size:12.5px;cursor:pointer;">Admin</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ── FORM ── -->
+  <div id="formScreen">
+    <div class="card">
+      <h2>Your details</h2>
+      <p class="hint">Enter your name and designation. Course options will appear once a designation is chosen.</p>
+
+      <div class="row">
+        <div>
+          <label for="fName">Full name</label>
+          <input type="text" id="fName" placeholder="e.g. Dr. Ahmed Khan">
+        </div>
+        <div>
+          <label for="fDesignation">Designation</label>
+          <select id="fDesignation">
+            <option value="">Select…</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="courseSections" style="display:none;">
+      <div class="card" id="courseCard">
+        <h2 id="courseSectionTitle">Preferred courses</h2>
+        <p class="hint" id="courseSectionHint">Select at least 3, up to 4 courses in order of preference.</p>
+
+        <input type="text" class="course-search" id="courseSearch" placeholder="Search course code or name…" style="padding:10px 12px;border:1px solid var(--line);border-radius:8px;width:100%;font-size:13.5px;">
+
+        <div class="counter">
+          <span></span>
+          <span class="count-badge" id="countBadge">0 selected</span>
+        </div>
+
+        <div class="course-list" id="courseList"></div>
+      </div>
+
+      <div class="card" id="labCard" style="display:none;">
+        <h2>Preferred lab</h2>
+        <p class="hint">Faculty members also choose one preferred lab.</p>
+
+        <input type="text" class="course-search" id="labSearch" placeholder="Search lab code or name…" style="padding:10px 12px;border:1px solid var(--line);border-radius:8px;width:100%;font-size:13.5px;">
+
+        <div class="counter">
+          <span></span>
+          <span class="count-badge" id="labCountBadge">0 selected</span>
+        </div>
+
+        <div class="course-list" id="labList"></div>
+      </div>
+    </div>
+
+    <div class="msg" id="formMsg"></div>
+    <button class="submit-btn" id="submitBtn" disabled>Submit preferences</button>
+  </div>
+
+  <!-- ── SUCCESS ── -->
+  <div class="success-screen" id="successScreen" style="display:none;">
+    <div class="tick">✅</div>
+    <h2>Preferences submitted</h2>
+    <p>Thank you — your course preferences have been recorded for the admin office.</p>
+    <button class="again-btn" id="submitAnotherBtn">Submit another response</button>
+  </div>
+
+  <!-- ── ADMIN PANEL ── -->
+  <div id="adminPanel" class="card">
+    <div class="admin-header">
+      <h2 style="margin:0;">Admin — All Submissions</h2>
+      <div style="display:flex; gap:8px;">
+        <button class="export-btn" id="exportBtn">⬇ Export to Excel</button>
+        <button class="close-admin" id="closeAdminBtn">Close</button>
+      </div>
+    </div>
+    <div class="admin-stats" id="adminStats"></div>
+    <div style="overflow-x:auto;">
+      <table class="admin-table" id="adminTable">
+        <thead>
+          <tr><th>#</th><th>Name</th><th>Designation</th><th>Role</th><th>Preferences</th><th>Lab Pref.</th><th>Submitted</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer-link"><a href="#" id="adminHintLink" style="display:none;">·</a></div>
+</div>
+
+<!-- Admin password gate -->
+<div id="adminGate">
+  <div class="box">
+    <h3>Admin access</h3>
+    <input type="text" id="adminPass" placeholder="Password" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;">
+    <div class="row2">
+      <button id="adminCancel">Cancel</button>
+      <button class="primary" id="adminGo">Enter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit submission modal -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(15,27,53,.55);align-items:center;justify-content:center;z-index:110;">
+  <div style="background:#fff;padding:22px 20px;border-radius:12px;width:420px;max-width:92vw;max-height:85vh;overflow-y:auto;">
+    <h3 style="margin:0 0 14px 0;font-size:15px;">Edit submission</h3>
+
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Full name</label>
+    <input type="text" id="editName" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:12px;">
+
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Designation</label>
+    <select id="editDesignation" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:12px;"></select>
+
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Course preferences</label>
+    <div id="editCourseList" style="max-height:220px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:12px;"></div>
+
+    <div id="editLabWrap" style="display:none;">
+      <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Lab preference</label>
+      <select id="editLabSelect" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:12px;"></select>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:6px;">
+      <button id="editCancelBtn" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:600;">Cancel</button>
+      <button id="editSaveBtn" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:600;">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── COURSE DATA ────────────────────────────────────────────────────────────
+const ALL_COURSES = [{"code": "EE101", "name": "Electric Circuit Analysis", "cr": 3, "lab": false}, {"code": "EE101L", "name": "Electric Circuit Analysis Laboratory", "cr": 1, "lab": true}, {"code": "EE223", "name": "Digital Logic Design", "cr": 3, "lab": false}, {"code": "EE223L", "name": "Digital Logic Design Laboratory", "cr": 1, "lab": true}, {"code": "EE235", "name": "Signals & Systems", "cr": 3, "lab": false}, {"code": "EE235L", "name": "Signals & Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE241", "name": "Electrical Machines", "cr": 3, "lab": false}, {"code": "EE241L", "name": "Electrical Machines Laboratory", "cr": 1, "lab": true}, {"code": "EE286", "name": "Electronic Devices and Circuits", "cr": 3, "lab": false}, {"code": "EE286L", "name": "Electronic Devices and Circuits Laboratory", "cr": 1, "lab": true}, {"code": "EE314", "name": "Antenna and Wave Propagation", "cr": 3, "lab": false}, {"code": "EE314L", "name": "Antenna and Wave Propagation Laboratory", "cr": 1, "lab": true}, {"code": "EE317", "name": "RF Circuit Design", "cr": 3, "lab": false}, {"code": "EE317L", "name": "RF Circuit Design Laboratory", "cr": 1, "lab": true}, {"code": "EE329", "name": "Microprocessors Interfacing and Applications", "cr": 3, "lab": false}, {"code": "EE329L", "name": "Microprocessors Interfacing and Applications Laboratory", "cr": 1, "lab": true}, {"code": "EE338", "name": "Digital Signal Processing", "cr": 3, "lab": false}, {"code": "EE338L", "name": "Digital Signal Processing Laboratory", "cr": 1, "lab": true}, {"code": "EE375", "name": "Communication Systems", "cr": 3, "lab": false}, {"code": "EE375L", "name": "Communication Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE406", "name": "Linear Integrated Circuit Design", "cr": 3, "lab": false}, {"code": "EE406L", "name": "Linear Integrated Circuit Design Laboratory", "cr": 1, "lab": true}, {"code": "EE429", "name": "FPGA Based Design", "cr": 3, "lab": false}, {"code": "EE429L", "name": "FPGA Based Design Laboratory", "cr": 1, "lab": true}, {"code": "EE437", "name": "Transmission and Switching Systems", "cr": 2, "lab": false}, {"code": "EE437L", "name": "Transmission and Switching Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE444", "name": "Power Transmission Systems", "cr": 3, "lab": false}, {"code": "EE444L", "name": "Power Transmission Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE446", "name": "Power System Analysis", "cr": 3, "lab": false}, {"code": "EE446L", "name": "Power System Analysis Laboratory", "cr": 1, "lab": true}, {"code": "EE460", "name": "Computer Communication Networks", "cr": 3, "lab": false}, {"code": "EE460L", "name": "Computer Communication Networks Laboratory", "cr": 1, "lab": true}, {"code": "EE461", "name": "Wireless and Mobile Communication", "cr": 3, "lab": false}, {"code": "EE475", "name": "Analog and Digital Communication", "cr": 3, "lab": false}, {"code": "EE475L", "name": "Analog and Digital Communication Laboratory", "cr": 1, "lab": true}, {"code": "EE493", "name": "Final Year Project II", "cr": 2, "lab": false}];
+
+// Designation -> role mapping. One flat dropdown; the role (and therefore
+// which course/lab pickers appear) is inferred from the chosen designation.
+const DESIGNATION_ROLE = {
+  "Assistant Professor": "faculty",
+  "Associate Professor": "faculty",
+  "Lecturer": "faculty",
+  "Lab Engineer": "lab"
+};
+const DESIGNATION_LIST = Object.keys(DESIGNATION_ROLE);
+
+const RULES = {
+  faculty: {min:3, max:4, label:"course"},
+  lab: {min:4, max:99, label:"lab course"}
+};
+
+let currentRole = null; // 'faculty' | 'lab' | null (no designation chosen yet)
+let selected = new Set();   // course codes (faculty: regular courses; lab: lab courses)
+let selectedLab = new Set(); // faculty's single preferred lab (max 1)
+
+// ─── FIREBASE SETUP ─────────────────────────────────────────────────────────
+let FB_COL = null;
+try {
+  const firebaseConfig = {
+    apiKey: "AIzaSyBsYXtAkKFq1ZmzSqGV7xCSAlcjV4Opq6w",
+    authDomain: "ee-c-pref.firebaseapp.com",
+    projectId: "ee-c-pref",
+    storageBucket: "ee-c-pref.firebasestorage.app",
+    messagingSenderId: "703578683804",
+    appId: "1:703578683804:web:c7d37c708ed2051f55b059",
+    measurementId: "G-Q802HP22GF"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  db.settings({ignoreUndefinedProperties:true});
+  FB_COL = db.collection('course_preferences_fall2026');
+} catch(e){
+  console.warn('Firebase init failed', e);
+}
+
+// ─── DESIGNATION DROPDOWN ───────────────────────────────────────────────────
+function populateDesignations(){
+  const sel = document.getElementById('fDesignation');
+  sel.innerHTML = '<option value="">Select…</option>' +
+    DESIGNATION_LIST.map(d=>`<option value="${d}">${d}</option>`).join('');
+}
+
+// ─── DESIGNATION CHANGE DRIVES ROLE + VISIBLE SECTIONS ─────────────────────
+document.getElementById('fDesignation').addEventListener('change', (e)=>{
+  const designation = e.target.value;
+  currentRole = DESIGNATION_ROLE[designation] || null;
+  selected.clear();
+  selectedLab.clear();
+
+  const sections = document.getElementById('courseSections');
+  const labCard = document.getElementById('labCard');
+
+  if(!currentRole){
+    sections.style.display = 'none';
+  } else {
+    sections.style.display = 'block';
+    labCard.style.display = currentRole === 'faculty' ? 'block' : 'none';
+    renderCourseList();
+    renderLabList();
+  }
+  updateCounter();
+});
+
+// ─── COURSE / LAB LIST RENDER ───────────────────────────────────────────────
+// Faculty: courseList = non-lab courses (3–4). labCard = single lab pick.
+// Lab engineer: courseList = lab courses only (4+). labCard hidden.
+function coursesForRole(){
+  return currentRole === 'lab' ? ALL_COURSES.filter(c=>c.lab) : ALL_COURSES.filter(c=>!c.lab);
+}
+
+function deptOf(code){
+  const m = code.match(/^[A-Za-z]+/);
+  return m ? m[0].replace(/L$/,'') : code;
+}
+
+function buildGroupedHtml(list, selSet, maxAllowed){
+  const groups = {};
+  list.forEach(c=>{
+    const d = deptOf(c.code);
+    (groups[d] = groups[d] || []).push(c);
+  });
+  let html = '';
+  Object.keys(groups).sort().forEach(dept=>{
+    html += `<div class="dept-heading">${dept}</div>`;
+    groups[dept].forEach(c=>{
+      const checked = selSet.has(c.code) ? 'checked' : '';
+      const atMax = selSet.size >= maxAllowed && !selSet.has(c.code);
+      html += `
+        <div class="course-item ${atMax?'disabled':''}" data-code="${c.code}">
+          <input type="checkbox" ${checked} ${atMax?'disabled':''} data-code="${c.code}">
+          <span class="code">${c.code}</span>
+          <span class="name">${c.name}</span>
+          <span class="cr">${c.cr} cr</span>
+        </div>`;
+    });
+  });
+  if(list.length === 0){
+    html = `<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">No courses match your search.</div>`;
+  }
+  return html;
+}
+
+function renderCourseList(){
+  if(!currentRole) return;
+  const title = document.getElementById('courseSectionTitle');
+  const hint = document.getElementById('courseSectionHint');
+  const rules = RULES[currentRole];
+  if(currentRole === 'lab'){
+    title.textContent = 'Preferred labs';
+    hint.textContent = `Select at least ${rules.min} lab courses in order of preference. Lab engineers may only choose lab courses.`;
+  } else {
+    title.textContent = 'Preferred courses';
+    hint.textContent = `Select at least ${rules.min}, up to ${rules.max} courses in order of preference.`;
+  }
+
+  const list = coursesForRole();
+  const q = (document.getElementById('courseSearch').value||'').toLowerCase().trim();
+  const filtered = q ? list.filter(c => c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : list;
+
+  const container = document.getElementById('courseList');
+  container.innerHTML = buildGroupedHtml(filtered, selected, rules.max);
+
+  container.querySelectorAll('.course-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      if(item.classList.contains('disabled')) return;
+      const code = item.dataset.code;
+      if(selected.has(code)) selected.delete(code);
+      else selected.add(code);
+      renderCourseList();
+      updateCounter();
+    });
+  });
+}
+
+function renderLabList(){
+  if(currentRole !== 'faculty') return;
+  const labCourses = ALL_COURSES.filter(c=>c.lab);
+  const q = (document.getElementById('labSearch').value||'').toLowerCase().trim();
+  const filtered = q ? labCourses.filter(c => c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : labCourses;
+
+  const container = document.getElementById('labList');
+  container.innerHTML = buildGroupedHtml(filtered, selectedLab, 1);
+
+  container.querySelectorAll('.course-item').forEach(item=>{
+    item.addEventListener('click', ()=>{
+      if(item.classList.contains('disabled')) return;
+      const code = item.dataset.code;
+      if(selectedLab.has(code)) selectedLab.delete(code);
+      else { selectedLab.clear(); selectedLab.add(code); } // single-select
+      renderLabList();
+      updateCounter();
+    });
+  });
+}
+
+document.getElementById('courseSearch').addEventListener('input', renderCourseList);
+document.getElementById('labSearch').addEventListener('input', renderLabList);
+
+function updateCounter(){
+  const badge = document.getElementById('countBadge');
+  const labBadge = document.getElementById('labCountBadge');
+
+  if(!currentRole){
+    document.getElementById('submitBtn').disabled = true;
+    return;
+  }
+
+  const rules = RULES[currentRole];
+  badge.textContent = `${selected.size} selected`;
+  const courseOk = selected.size >= rules.min && selected.size <= rules.max;
+  badge.classList.toggle('ok', courseOk);
+
+  let labOk = true;
+  if(currentRole === 'faculty'){
+    labBadge.textContent = `${selectedLab.size} selected`;
+    labOk = selectedLab.size === 1;
+    labBadge.classList.toggle('ok', labOk);
+  }
+
+  const nameOk = document.getElementById('fName').value.trim().length > 0;
+  const designationOk = document.getElementById('fDesignation').value.length > 0;
+  document.getElementById('submitBtn').disabled = !(courseOk && labOk && nameOk && designationOk);
+}
+
+document.getElementById('fName').addEventListener('input', updateCounter);
+
+// ─── SUBMIT ─────────────────────────────────────────────────────────────────
+document.getElementById('submitBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('fName').value.trim();
+  const designation = document.getElementById('fDesignation').value;
+  const rules = RULES[currentRole];
+  const msg = document.getElementById('formMsg');
+  msg.className = 'msg'; msg.textContent='';
+
+  if(!name || !designation){
+    msg.className='msg error'; msg.textContent='Please enter your name and designation.'; return;
+  }
+  if(selected.size < rules.min){
+    msg.className='msg error'; msg.textContent=`Please select at least ${rules.min} ${rules.label}s.`; return;
+  }
+  if(currentRole === 'faculty' && selectedLab.size !== 1){
+    msg.className='msg error'; msg.textContent='Please select one preferred lab.'; return;
+  }
+
+  const prefs = Array.from(selected).map(code => ALL_COURSES.find(c=>c.code===code));
+  const labPref = currentRole === 'faculty'
+    ? ALL_COURSES.find(c=>c.code === Array.from(selectedLab)[0])
+    : null;
+
+  const submitBtn = document.getElementById('submitBtn');
+  submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
+
+  const payload = {
+    name, designation,
+    role: currentRole === 'lab' ? 'Lab Engineer' : 'Faculty Member',
+    preferences: prefs.map(p=>({code:p.code, name:p.name})),
+    labPreference: labPref ? {code:labPref.code, name:labPref.name} : null,
+    submittedAt: new Date().toISOString()
+  };
+
+  try{
+    if(FB_COL){
+      await FB_COL.add(payload);
+    }
+    document.getElementById('formScreen').style.display='none';
+    document.getElementById('successScreen').style.display='block';
+  }catch(e){
+    console.error(e);
+    msg.className='msg error'; msg.textContent='Could not submit — please check your connection and try again.';
+    submitBtn.disabled = false; submitBtn.textContent = 'Submit preferences';
+  }
+});
+
+document.getElementById('submitAnotherBtn').addEventListener('click', ()=>{
+  document.getElementById('fName').value='';
+  document.getElementById('fDesignation').value='';
+  selected.clear();
+  selectedLab.clear();
+  currentRole = null;
+  document.getElementById('courseSections').style.display='none';
+  document.getElementById('labCard').style.display='none';
+  updateCounter();
+  document.getElementById('submitBtn').textContent = 'Submit preferences';
+  document.getElementById('successScreen').style.display='none';
+  document.getElementById('formScreen').style.display='block';
+});
+
+// ─── ADMIN ──────────────────────────────────────────────────────────────────
+const ADMIN_PASSWORD = "cf2026";
+
+document.getElementById('adminHintLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  document.getElementById('adminGate').style.display='flex';
+});
+document.getElementById('adminTopBtn').addEventListener('click', ()=>{
+  document.getElementById('adminGate').style.display='flex';
+});
+document.getElementById('adminCancel').addEventListener('click', ()=>{
+  document.getElementById('adminGate').style.display='none';
+});
+document.getElementById('adminGo').addEventListener('click', tryAdminLogin);
+document.getElementById('adminPass').addEventListener('keydown', (e)=>{ if(e.key==='Enter') tryAdminLogin(); });
+
+async function tryAdminLogin(){
+  const val = document.getElementById('adminPass').value;
+  if(val !== ADMIN_PASSWORD){
+    alert('Incorrect password.');
+    return;
+  }
+  document.getElementById('adminGate').style.display='none';
+  document.getElementById('adminPass').value='';
+  document.getElementById('formScreen').style.display='none';
+  document.getElementById('successScreen').style.display='none';
+  document.getElementById('adminPanel').style.display='block';
+  await loadAdminData();
+}
+
+document.getElementById('closeAdminBtn').addEventListener('click', ()=>{
+  document.getElementById('adminPanel').style.display='none';
+  document.getElementById('formScreen').style.display='block';
+});
+
+let adminSubmissions = [];
+
+async function loadAdminData(){
+  const tbody = document.getElementById('adminTableBody');
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">Loading…</td></tr>';
+  try{
+    const snap = await FB_COL.orderBy('submittedAt','desc').get();
+    adminSubmissions = snap.docs.map(d=>({id:d.id, ...d.data()}));
+  }catch(e){
+    console.error(e);
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--red);">Could not load submissions.</td></tr>';
+    return;
+  }
+
+  const facultyCount = adminSubmissions.filter(s=>s.role==='Faculty Member').length;
+  const labCount = adminSubmissions.filter(s=>s.role==='Lab Engineer').length;
+  document.getElementById('adminStats').innerHTML = `
+    <div class="stat-mini"><b>${adminSubmissions.length}</b>Total submissions</div>
+    <div class="stat-mini"><b>${facultyCount}</b>Faculty members</div>
+    <div class="stat-mini"><b>${labCount}</b>Lab engineers</div>`;
+
+  if(adminSubmissions.length === 0){
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--muted);">No submissions yet.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = adminSubmissions.map((s,i)=>{
+    const prefsHtml = (s.preferences||[]).map((p,idx)=>`<span class="pill">${idx+1}. ${p.code}</span>`).join('');
+    const labHtml = s.labPreference ? `<span class="pill">${s.labPreference.code}</span>` : '—';
+    const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—';
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${escapeHtml(s.name||'')}</td>
+      <td>${escapeHtml(s.designation||'')}</td>
+      <td>${escapeHtml(s.role||'')}</td>
+      <td>${prefsHtml}</td>
+      <td>${labHtml}</td>
+      <td>${date}</td>
+      <td style="white-space:nowrap;">
+        <button class="row-edit-btn" data-id="${s.id}" style="padding:6px 10px;border-radius:6px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--teal-deep);margin-right:5px;">Edit</button>
+        <button class="row-del-btn" data-id="${s.id}" style="padding:6px 10px;border-radius:6px;border:1px solid var(--red);background:var(--red-bg);cursor:pointer;font-size:11.5px;font-weight:600;color:var(--red);">Delete</button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('.row-edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditModal(btn.dataset.id));
+  });
+  tbody.querySelectorAll('.row-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteSubmission(btn.dataset.id));
+  });
+}
+
+async function deleteSubmission(id){
+  const s = adminSubmissions.find(x=>x.id===id);
+  if(!confirm(`Delete the submission from "${s ? s.name : 'this entry'}"? This cannot be undone.`)) return;
+  try{
+    await FB_COL.doc(id).delete();
+    await loadAdminData();
+  }catch(e){
+    console.error(e);
+    alert('Could not delete — check your connection and try again.');
+  }
+}
+
+// ─── EDIT MODAL ─────────────────────────────────────────────────────────────
+let editingId = null;
+
+function openEditModal(id){
+  const s = adminSubmissions.find(x=>x.id===id);
+  if(!s) return;
+  editingId = id;
+
+  document.getElementById('editName').value = s.name || '';
+  const desigSel = document.getElementById('editDesignation');
+  desigSel.innerHTML = DESIGNATION_LIST.map(d=>`<option value="${d}">${d}</option>`).join('');
+  desigSel.value = s.designation || DESIGNATION_LIST[0];
+
+  const role = DESIGNATION_ROLE[desigSel.value] || 'faculty';
+  renderEditCourseList(role, s.preferences||[]);
+  renderEditLabList(role, s.labPreference||null);
+
+  document.getElementById('editModal').style.display='flex';
+}
+
+function renderEditCourseList(role, selectedPrefs){
+  const container = document.getElementById('editCourseList');
+  const selectedCodes = new Set(selectedPrefs.map(p=>p.code));
+  const pool = role==='lab' ? ALL_COURSES.filter(c=>c.lab) : ALL_COURSES.filter(c=>!c.lab);
+  container.innerHTML = pool.map(c=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #F0F1F7;font-size:13px;">
+      <input type="checkbox" value="${c.code}" ${selectedCodes.has(c.code)?'checked':''} style="accent-color:var(--teal);">
+      <span style="font-family:'IBM Plex Mono',monospace;font-weight:600;color:var(--teal-deep);min-width:62px;">${c.code}</span>
+      <span style="color:var(--ink-soft);">${c.name}</span>
+    </label>`).join('');
+}
+
+function renderEditLabList(role, currentLab){
+  const wrap = document.getElementById('editLabWrap');
+  const sel = document.getElementById('editLabSelect');
+  if(role === 'faculty'){
+    wrap.style.display='block';
+    const labCourses = ALL_COURSES.filter(c=>c.lab);
+    sel.innerHTML = '<option value="">— none —</option>' + labCourses.map(c=>`<option value="${c.code}" ${currentLab && currentLab.code===c.code ? 'selected':''}>${c.code} — ${c.name}</option>`).join('');
+  } else {
+    wrap.style.display='none';
+    sel.innerHTML='';
+  }
+}
+
+document.getElementById('editDesignation').addEventListener('change', (e)=>{
+  const role = DESIGNATION_ROLE[e.target.value] || 'faculty';
+  const s = adminSubmissions.find(x=>x.id===editingId);
+  renderEditCourseList(role, role===(s && DESIGNATION_ROLE[s.designation]) ? (s.preferences||[]) : []);
+  renderEditLabList(role, s ? s.labPreference : null);
+});
+
+document.getElementById('editCancelBtn').addEventListener('click', ()=>{
+  document.getElementById('editModal').style.display='none';
+  editingId = null;
+});
+
+document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
+  if(!editingId) return;
+  const name = document.getElementById('editName').value.trim();
+  const designation = document.getElementById('editDesignation').value;
+  const role = DESIGNATION_ROLE[designation] || 'faculty';
+  const roleLabel = role==='lab' ? 'Lab Engineer' : 'Faculty Member';
+
+  if(!name){ alert('Name is required.'); return; }
+
+  const checked = Array.from(document.getElementById('editCourseList').querySelectorAll('input[type=checkbox]:checked')).map(el=>el.value);
+  const rule = RULES[role];
+  if(checked.length < rule.min || checked.length > rule.max){
+    alert(`Please select between ${rule.min} and ${rule.max} ${rule.label}s.`);
+    return;
+  }
+  const preferences = checked.map(code=>{
+    const c = ALL_COURSES.find(x=>x.code===code);
+    return {code: c.code, name: c.name};
+  });
+
+  let labPreference = null;
+  if(role === 'faculty'){
+    const labCode = document.getElementById('editLabSelect').value;
+    if(labCode){
+      const lc = ALL_COURSES.find(x=>x.code===labCode);
+      labPreference = {code: lc.code, name: lc.name};
+    }
+  }
+
+  try{
+    await FB_COL.doc(editingId).update({
+      name, designation, role: roleLabel,
+      preferences, labPreference
+    });
+    document.getElementById('editModal').style.display='none';
+    editingId = null;
+    await loadAdminData();
+  }catch(e){
+    console.error(e);
+    alert('Could not save changes — check your connection and try again.');
+  }
+});
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ─── EXCEL EXPORT (admin only) ──────────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click', ()=>{
+  if(adminSubmissions.length === 0){ alert('No submissions to export.'); return; }
+
+  // Sheet 1: one row per person, preferences as ordered columns + lab preference
+  const summaryRows = adminSubmissions.map(s=>{
+    const row = {
+      'Name': s.name || '',
+      'Designation': s.designation || '',
+      'Role': s.role || '',
+    };
+    (s.preferences||[]).forEach((p,idx)=>{
+      row[`Preference ${idx+1}`] = `${p.code} — ${p.name}`;
+    });
+    row['Lab Preference'] = s.labPreference ? `${s.labPreference.code} — ${s.labPreference.name}` : '';
+    row['Submitted'] = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '';
+    return row;
+  });
+
+  // Sheet 2: one row per (person, course) — useful for pivoting demand.
+  // Includes both regular course preferences and, for faculty, their lab pick.
+  const detailRows = [];
+  adminSubmissions.forEach(s=>{
+    (s.preferences||[]).forEach((p,idx)=>{
+      detailRows.push({
+        'Name': s.name || '',
+        'Designation': s.designation || '',
+        'Role': s.role || '',
+        'Preference Rank': idx+1,
+        'Course Code': p.code,
+        'Course Name': p.name,
+        'Submitted': s.submittedAt ? new Date(s.submittedAt).toLocaleString() : ''
+      });
+    });
+    if(s.labPreference){
+      detailRows.push({
+        'Name': s.name || '',
+        'Designation': s.designation || '',
+        'Role': s.role || '',
+        'Preference Rank': 'Lab',
+        'Course Code': s.labPreference.code,
+        'Course Name': s.labPreference.name,
+        'Submitted': s.submittedAt ? new Date(s.submittedAt).toLocaleString() : ''
+      });
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws1 = XLSX.utils.json_to_sheet(summaryRows);
+  const ws2 = XLSX.utils.json_to_sheet(detailRows);
+  XLSX.utils.book_append_sheet(wb, ws1, 'Submissions Summary');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Preferences Detail');
+  XLSX.writeFile(wb, `Course_Preferences_Fall2026_${new Date().toISOString().slice(0,10)}.xlsx`);
+});
+
+// ─── INIT ───────────────────────────────────────────────────────────────────
+populateDesignations();
+renderCourseList();
+updateCounter();
+</script>
+</body>
+</html>
