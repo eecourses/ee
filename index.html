@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Course Preference Portal — Fall 2026</title>
+<title>Course Preference Portal — Fall 2026 Department of Electrical Engineering</title>
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -129,7 +129,7 @@
   <div class="topbar-inner">
     <div>
       <h1>Course Preference Portal</h1>
-      <p class="eyebrow">Fall 2026 · EE &amp; CE Department</p>
+      <p class="eyebrow">Fall 2026 Department of Electrical Engineering</p>
     </div>
     <button id="adminTopBtn" style="padding:8px 14px;border-radius:8px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.08);color:#EDEFF3;font-weight:600;font-size:12.5px;cursor:pointer;">Admin</button>
   </div>
@@ -146,7 +146,7 @@
       <div class="row">
         <div>
           <label for="fName">Full name</label>
-          <input type="text" id="fName" placeholder="e.g. Dr. Ahmed Khan">
+          <input type="text" id="fName" placeholder="">
         </div>
         <div>
           <label for="fDesignation">Designation</label>
@@ -205,6 +205,7 @@
       <h2 style="margin:0;">Admin — All Submissions</h2>
       <div style="display:flex; gap:8px;">
         <button class="export-btn" id="exportBtn">⬇ Export to Excel</button>
+        <button class="close-admin" id="changePassBtn">Change password</button>
         <button class="close-admin" id="closeAdminBtn">Close</button>
       </div>
     </div>
@@ -230,6 +231,24 @@
     <div class="row2">
       <button id="adminCancel">Cancel</button>
       <button class="primary" id="adminGo">Enter</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change admin password modal -->
+<div id="changePassModal" style="display:none;position:fixed;inset:0;background:rgba(15,27,53,.55);align-items:center;justify-content:center;z-index:110;">
+  <div class="box" style="background:#fff;padding:26px 24px;border-radius:12px;width:300px;max-width:90vw;">
+    <h3 style="margin:0 0 12px 0;font-size:15px;">Change admin password</h3>
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Current password</label>
+    <input type="password" id="cpCurrent" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:10px;">
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">New password</label>
+    <input type="password" id="cpNew" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:10px;">
+    <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Confirm new password</label>
+    <input type="password" id="cpConfirm" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:6px;">
+    <div class="msg" id="cpMsg" style="margin-top:6px;"></div>
+    <div class="row2" style="margin-top:12px;">
+      <button id="cpCancel">Cancel</button>
+      <button class="primary" id="cpSave">Save</button>
     </div>
   </div>
 </div>
@@ -516,7 +535,20 @@ document.getElementById('submitAnotherBtn').addEventListener('click', ()=>{
 });
 
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
-const ADMIN_PASSWORD = "cf2026";
+let ADMIN_PASSWORD = "cf2026"; // fallback default, overridden by Firestore if set
+const FB_SETTINGS = (FB_COL ? FB_COL.firestore.collection('app_settings').doc('admin') : null);
+
+async function loadAdminPassword(){
+  if(!FB_SETTINGS) return;
+  try{
+    const doc = await FB_SETTINGS.get();
+    if(doc.exists && doc.data().password){
+      ADMIN_PASSWORD = doc.data().password;
+    }
+  }catch(e){
+    console.warn('Could not load admin password from Firestore, using default.', e);
+  }
+}
 
 document.getElementById('adminHintLink').addEventListener('click', (e)=>{
   e.preventDefault();
@@ -544,6 +576,46 @@ async function tryAdminLogin(){
   document.getElementById('adminPanel').style.display='block';
   await loadAdminData();
 }
+
+document.getElementById('changePassBtn').addEventListener('click', ()=>{
+  document.getElementById('cpCurrent').value='';
+  document.getElementById('cpNew').value='';
+  document.getElementById('cpConfirm').value='';
+  const msg = document.getElementById('cpMsg');
+  msg.className='msg'; msg.style.display='none'; msg.textContent='';
+  document.getElementById('changePassModal').style.display='flex';
+});
+document.getElementById('cpCancel').addEventListener('click', ()=>{
+  document.getElementById('changePassModal').style.display='none';
+});
+document.getElementById('cpSave').addEventListener('click', async ()=>{
+  const msg = document.getElementById('cpMsg');
+  const showMsg = (text, ok)=>{
+    msg.textContent = text;
+    msg.className = 'msg ' + (ok ? 'success' : 'error');
+    msg.style.display = 'block';
+  };
+
+  const current = document.getElementById('cpCurrent').value;
+  const next = document.getElementById('cpNew').value;
+  const confirmVal = document.getElementById('cpConfirm').value;
+
+  if(current !== ADMIN_PASSWORD){ showMsg('Current password is incorrect.', false); return; }
+  if(!next || next.length < 4){ showMsg('New password must be at least 4 characters.', false); return; }
+  if(next !== confirmVal){ showMsg('New password and confirmation do not match.', false); return; }
+
+  try{
+    if(FB_SETTINGS){
+      await FB_SETTINGS.set({password: next}, {merge:true});
+    }
+    ADMIN_PASSWORD = next;
+    showMsg('Password updated.', true);
+    setTimeout(()=>{ document.getElementById('changePassModal').style.display='none'; }, 900);
+  }catch(e){
+    console.error(e);
+    showMsg('Could not save new password — check your connection and try again.', false);
+  }
+});
 
 document.getElementById('closeAdminBtn').addEventListener('click', ()=>{
   document.getElementById('adminPanel').style.display='none';
@@ -780,6 +852,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
 populateDesignations();
 renderCourseList();
 updateCounter();
+loadAdminPassword();
 </script>
 </body>
 </html>
