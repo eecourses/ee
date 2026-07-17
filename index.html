@@ -205,6 +205,7 @@
       <h2 style="margin:0;">Admin — All Submissions</h2>
       <div style="display:flex; gap:8px;">
         <button class="export-btn" id="exportBtn">⬇ Export to Excel</button>
+        <button class="close-admin" id="manageCoursesBtn">Manage courses</button>
         <button class="close-admin" id="changePassBtn">Change password</button>
         <button class="close-admin" id="closeAdminBtn">Close</button>
       </div>
@@ -253,6 +254,42 @@
   </div>
 </div>
 
+<!-- Manage courses modal -->
+<div id="coursesModal" style="display:none;position:fixed;inset:0;background:rgba(15,27,53,.55);align-items:center;justify-content:center;z-index:110;">
+  <div style="background:#fff;padding:22px 20px;border-radius:12px;width:560px;max-width:94vw;max-height:88vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h3 style="margin:0;font-size:15px;">Manage courses</h3>
+      <button id="coursesCloseBtn" style="border:1px solid var(--line);background:#fff;border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600;">Close</button>
+    </div>
+
+    <div style="border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:16px;">
+      <div id="courseFormTitle" style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:8px;">Add a new course</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <input type="text" id="cCode" placeholder="Code e.g. EE501" style="flex:1;padding:9px 10px;border:1px solid var(--line);border-radius:7px;">
+        <input type="number" id="cCredit" placeholder="Credit hrs" min="0" step="0.5" style="width:110px;padding:9px 10px;border:1px solid var(--line);border-radius:7px;">
+      </div>
+      <input type="text" id="cName" placeholder="Course name" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:8px;box-sizing:border-box;">
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;margin-bottom:10px;cursor:pointer;">
+        <input type="checkbox" id="cIsLab"> This is a lab course
+      </label>
+      <div class="msg" id="cMsg" style="margin-bottom:8px;"></div>
+      <div style="display:flex;gap:8px;">
+        <button id="cSaveBtn" class="primary" style="flex:1;padding:10px;border-radius:8px;border:none;background:var(--teal);color:#fff;cursor:pointer;font-weight:600;">Add course</button>
+        <button id="cResetBtn" style="display:none;padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:600;">Cancel edit</button>
+      </div>
+    </div>
+
+    <div id="coursesListWrap" style="overflow-x:auto;">
+      <table class="admin-table" style="width:100%;">
+        <thead>
+          <tr><th>Code</th><th>Name</th><th>Cr.</th><th>Type</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="coursesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- Edit submission modal -->
 <div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(15,27,53,.55);align-items:center;justify-content:center;z-index:110;">
   <div style="background:#fff;padding:22px 20px;border-radius:12px;width:420px;max-width:92vw;max-height:85vh;overflow-y:auto;">
@@ -281,13 +318,14 @@
 
 <script>
 // ─── COURSE DATA ────────────────────────────────────────────────────────────
-const ALL_COURSES = [{"code": "EE101", "name": "Electric Circuit Analysis", "cr": 3, "lab": false}, {"code": "EE101L", "name": "Electric Circuit Analysis Laboratory", "cr": 1, "lab": true}, {"code": "EE223", "name": "Digital Logic Design", "cr": 3, "lab": false}, {"code": "EE223L", "name": "Digital Logic Design Laboratory", "cr": 1, "lab": true}, {"code": "EE235", "name": "Signals & Systems", "cr": 3, "lab": false}, {"code": "EE235L", "name": "Signals & Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE241", "name": "Electrical Machines", "cr": 3, "lab": false}, {"code": "EE241L", "name": "Electrical Machines Laboratory", "cr": 1, "lab": true}, {"code": "EE286", "name": "Electronic Devices and Circuits", "cr": 3, "lab": false}, {"code": "EE286L", "name": "Electronic Devices and Circuits Laboratory", "cr": 1, "lab": true}, {"code": "EE314", "name": "Antenna and Wave Propagation", "cr": 3, "lab": false}, {"code": "EE314L", "name": "Antenna and Wave Propagation Laboratory", "cr": 1, "lab": true}, {"code": "EE317", "name": "RF Circuit Design", "cr": 3, "lab": false}, {"code": "EE317L", "name": "RF Circuit Design Laboratory", "cr": 1, "lab": true}, {"code": "EE329", "name": "Microprocessors Interfacing and Applications", "cr": 3, "lab": false}, {"code": "EE329L", "name": "Microprocessors Interfacing and Applications Laboratory", "cr": 1, "lab": true}, {"code": "EE338", "name": "Digital Signal Processing", "cr": 3, "lab": false}, {"code": "EE338L", "name": "Digital Signal Processing Laboratory", "cr": 1, "lab": true}, {"code": "EE375", "name": "Communication Systems", "cr": 3, "lab": false}, {"code": "EE375L", "name": "Communication Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE406", "name": "Linear Integrated Circuit Design", "cr": 3, "lab": false}, {"code": "EE406L", "name": "Linear Integrated Circuit Design Laboratory", "cr": 1, "lab": true}, {"code": "EE429", "name": "FPGA Based Design", "cr": 3, "lab": false}, {"code": "EE429L", "name": "FPGA Based Design Laboratory", "cr": 1, "lab": true}, {"code": "EE437", "name": "Transmission and Switching Systems", "cr": 2, "lab": false}, {"code": "EE437L", "name": "Transmission and Switching Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE444", "name": "Power Transmission Systems", "cr": 3, "lab": false}, {"code": "EE444L", "name": "Power Transmission Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE446", "name": "Power System Analysis", "cr": 3, "lab": false}, {"code": "EE446L", "name": "Power System Analysis Laboratory", "cr": 1, "lab": true}, {"code": "EE460", "name": "Computer Communication Networks", "cr": 3, "lab": false}, {"code": "EE460L", "name": "Computer Communication Networks Laboratory", "cr": 1, "lab": true}, {"code": "EE461", "name": "Wireless and Mobile Communication", "cr": 3, "lab": false}, {"code": "EE475", "name": "Analog and Digital Communication", "cr": 3, "lab": false}, {"code": "EE475L", "name": "Analog and Digital Communication Laboratory", "cr": 1, "lab": true}, {"code": "EE493", "name": "Final Year Project II", "cr": 2, "lab": false}];
+let ALL_COURSES = [{"code": "EE101", "name": "Electric Circuit Analysis", "cr": 3, "lab": false}, {"code": "EE101L", "name": "Electric Circuit Analysis Laboratory", "cr": 1, "lab": true}, {"code": "EE223", "name": "Digital Logic Design", "cr": 3, "lab": false}, {"code": "EE223L", "name": "Digital Logic Design Laboratory", "cr": 1, "lab": true}, {"code": "EE235", "name": "Signals & Systems", "cr": 3, "lab": false}, {"code": "EE235L", "name": "Signals & Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE241", "name": "Electrical Machines", "cr": 3, "lab": false}, {"code": "EE241L", "name": "Electrical Machines Laboratory", "cr": 1, "lab": true}, {"code": "EE286", "name": "Electronic Devices and Circuits", "cr": 3, "lab": false}, {"code": "EE286L", "name": "Electronic Devices and Circuits Laboratory", "cr": 1, "lab": true}, {"code": "EE314", "name": "Antenna and Wave Propagation", "cr": 3, "lab": false}, {"code": "EE314L", "name": "Antenna and Wave Propagation Laboratory", "cr": 1, "lab": true}, {"code": "EE317", "name": "RF Circuit Design", "cr": 3, "lab": false}, {"code": "EE317L", "name": "RF Circuit Design Laboratory", "cr": 1, "lab": true}, {"code": "EE329", "name": "Microprocessors Interfacing and Applications", "cr": 3, "lab": false}, {"code": "EE329L", "name": "Microprocessors Interfacing and Applications Laboratory", "cr": 1, "lab": true}, {"code": "EE338", "name": "Digital Signal Processing", "cr": 3, "lab": false}, {"code": "EE338L", "name": "Digital Signal Processing Laboratory", "cr": 1, "lab": true}, {"code": "EE375", "name": "Communication Systems", "cr": 3, "lab": false}, {"code": "EE375L", "name": "Communication Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE406", "name": "Linear Integrated Circuit Design", "cr": 3, "lab": false}, {"code": "EE406L", "name": "Linear Integrated Circuit Design Laboratory", "cr": 1, "lab": true}, {"code": "EE429", "name": "FPGA Based Design", "cr": 3, "lab": false}, {"code": "EE429L", "name": "FPGA Based Design Laboratory", "cr": 1, "lab": true}, {"code": "EE437", "name": "Transmission and Switching Systems", "cr": 2, "lab": false}, {"code": "EE437L", "name": "Transmission and Switching Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE444", "name": "Power Transmission Systems", "cr": 3, "lab": false}, {"code": "EE444L", "name": "Power Transmission Systems Laboratory", "cr": 1, "lab": true}, {"code": "EE446", "name": "Power System Analysis", "cr": 3, "lab": false}, {"code": "EE446L", "name": "Power System Analysis Laboratory", "cr": 1, "lab": true}, {"code": "EE460", "name": "Computer Communication Networks", "cr": 3, "lab": false}, {"code": "EE460L", "name": "Computer Communication Networks Laboratory", "cr": 1, "lab": true}, {"code": "EE461", "name": "Wireless and Mobile Communication", "cr": 3, "lab": false}, {"code": "EE475", "name": "Analog and Digital Communication", "cr": 3, "lab": false}, {"code": "EE475L", "name": "Analog and Digital Communication Laboratory", "cr": 1, "lab": true}, {"code": "EE493", "name": "Final Year Project II", "cr": 2, "lab": false}];
 
 // Designation -> role mapping. One flat dropdown; the role (and therefore
 // which course/lab pickers appear) is inferred from the chosen designation.
 const DESIGNATION_ROLE = {
-  "Assistant Professor": "faculty",
+  "Professor": "faculty",
   "Associate Professor": "faculty",
+  "Assistant Professor": "faculty",
   "Lecturer": "faculty",
   "Lab Engineer": "lab"
 };
@@ -537,6 +575,7 @@ document.getElementById('submitAnotherBtn').addEventListener('click', ()=>{
 // ─── ADMIN ──────────────────────────────────────────────────────────────────
 let ADMIN_PASSWORD = "cf2026"; // fallback default, overridden by Firestore if set
 const FB_SETTINGS = (FB_COL ? FB_COL.firestore.collection('app_settings').doc('admin') : null);
+const FB_COURSES = (FB_COL ? FB_COL.firestore.collection('app_settings').doc('courses') : null);
 
 async function loadAdminPassword(){
   if(!FB_SETTINGS) return;
@@ -548,6 +587,38 @@ async function loadAdminPassword(){
   }catch(e){
     console.warn('Could not load admin password from Firestore, using default.', e);
   }
+}
+
+async function loadCourses(){
+  if(!FB_COURSES) return;
+  try{
+    const doc = await FB_COURSES.get();
+    if(doc.exists && Array.isArray(doc.data().list) && doc.data().list.length){
+      ALL_COURSES = doc.data().list;
+    } else {
+      // Seed Firestore with the built-in default list so future edits persist.
+      await FB_COURSES.set({list: ALL_COURSES});
+    }
+  }catch(e){
+    console.warn('Could not load courses from Firestore, using default list.', e);
+  }
+  renderCourseList();
+  renderLabList();
+  renderCoursesAdmin();
+}
+
+async function saveCourses(){
+  if(FB_COURSES){
+    try{
+      await FB_COURSES.set({list: ALL_COURSES});
+    }catch(e){
+      console.error('Could not save courses to Firestore.', e);
+      alert('Could not save changes — check your connection and try again.');
+    }
+  }
+  renderCourseList();
+  renderLabList();
+  renderCoursesAdmin();
 }
 
 document.getElementById('adminHintLink').addEventListener('click', (e)=>{
@@ -620,6 +691,117 @@ document.getElementById('cpSave').addEventListener('click', async ()=>{
 document.getElementById('closeAdminBtn').addEventListener('click', ()=>{
   document.getElementById('adminPanel').style.display='none';
   document.getElementById('formScreen').style.display='block';
+});
+
+// ─── MANAGE COURSES ─────────────────────────────────────────────────────────
+let editingCourseCode = null; // null = add mode, else code of course being edited
+
+function renderCoursesAdmin(){
+  const tbody = document.getElementById('coursesTableBody');
+  if(!tbody) return;
+  if(!ALL_COURSES.length){
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:16px;color:var(--muted);">No courses yet.</td></tr>';
+    return;
+  }
+  const rows = [...ALL_COURSES].sort((a,b)=>a.code.localeCompare(b.code));
+  tbody.innerHTML = rows.map(c=>`
+    <tr>
+      <td>${c.code}</td>
+      <td>${c.name}</td>
+      <td>${c.cr}</td>
+      <td>${c.lab ? 'Lab' : 'Regular'}</td>
+      <td style="white-space:nowrap;">
+        <button class="course-edit-btn" data-code="${c.code}" style="border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;margin-right:6px;">Edit</button>
+        <button class="course-del-btn" data-code="${c.code}" style="border:1px solid #e2b3b3;background:#fff;color:#b23b3b;border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;">Delete</button>
+      </td>
+    </tr>`).join('');
+
+  tbody.querySelectorAll('.course-edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> startEditCourse(btn.dataset.code));
+  });
+  tbody.querySelectorAll('.course-del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> deleteCourse(btn.dataset.code));
+  });
+}
+
+function resetCourseForm(){
+  editingCourseCode = null;
+  document.getElementById('courseFormTitle').textContent = 'Add a new course';
+  document.getElementById('cCode').value = '';
+  document.getElementById('cCode').disabled = false;
+  document.getElementById('cName').value = '';
+  document.getElementById('cCredit').value = '';
+  document.getElementById('cIsLab').checked = false;
+  document.getElementById('cSaveBtn').textContent = 'Add course';
+  document.getElementById('cResetBtn').style.display = 'none';
+  const msg = document.getElementById('cMsg');
+  msg.style.display = 'none'; msg.textContent = '';
+}
+
+function startEditCourse(code){
+  const c = ALL_COURSES.find(x=>x.code===code);
+  if(!c) return;
+  editingCourseCode = code;
+  document.getElementById('courseFormTitle').textContent = `Editing ${code}`;
+  document.getElementById('cCode').value = c.code;
+  document.getElementById('cCode').disabled = true; // code is the identifier; edit name/cr/type instead
+  document.getElementById('cName').value = c.name;
+  document.getElementById('cCredit').value = c.cr;
+  document.getElementById('cIsLab').checked = !!c.lab;
+  document.getElementById('cSaveBtn').textContent = 'Save changes';
+  document.getElementById('cResetBtn').style.display = 'inline-block';
+  const msg = document.getElementById('cMsg');
+  msg.style.display = 'none'; msg.textContent = '';
+}
+
+async function deleteCourse(code){
+  if(!confirm(`Delete course ${code}? This cannot be undone.`)) return;
+  ALL_COURSES = ALL_COURSES.filter(c=>c.code!==code);
+  if(editingCourseCode === code) resetCourseForm();
+  await saveCourses();
+}
+
+document.getElementById('manageCoursesBtn').addEventListener('click', ()=>{
+  resetCourseForm();
+  renderCoursesAdmin();
+  document.getElementById('coursesModal').style.display='flex';
+});
+document.getElementById('coursesCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('coursesModal').style.display='none';
+});
+document.getElementById('cResetBtn').addEventListener('click', resetCourseForm);
+
+document.getElementById('cSaveBtn').addEventListener('click', async ()=>{
+  const msg = document.getElementById('cMsg');
+  const showMsg = (text, ok)=>{
+    msg.textContent = text;
+    msg.className = 'msg ' + (ok ? 'success' : 'error');
+    msg.style.display = 'block';
+  };
+
+  const code = document.getElementById('cCode').value.trim().toUpperCase();
+  const name = document.getElementById('cName').value.trim();
+  const cr = parseFloat(document.getElementById('cCredit').value);
+  const isLab = document.getElementById('cIsLab').checked;
+
+  if(!code){ showMsg('Course code is required.', false); return; }
+  if(!name){ showMsg('Course name is required.', false); return; }
+  if(isNaN(cr) || cr <= 0){ showMsg('Enter a valid credit hour value.', false); return; }
+
+  if(editingCourseCode){
+    const idx = ALL_COURSES.findIndex(c=>c.code===editingCourseCode);
+    if(idx === -1){ showMsg('Course no longer exists.', false); return; }
+    ALL_COURSES[idx] = {code: editingCourseCode, name, cr, lab: isLab};
+    await saveCourses();
+    showMsg('Course updated.', true);
+    resetCourseForm();
+  } else {
+    if(ALL_COURSES.some(c=>c.code===code)){ showMsg('A course with this code already exists.', false); return; }
+    ALL_COURSES.push({code, name, cr, lab: isLab});
+    await saveCourses();
+    showMsg('Course added.', true);
+    resetCourseForm();
+  }
 });
 
 let adminSubmissions = [];
@@ -853,6 +1035,7 @@ populateDesignations();
 renderCourseList();
 updateCounter();
 loadAdminPassword();
+loadCourses();
 </script>
 </body>
 </html>
