@@ -831,8 +831,8 @@ async function loadAdminData(){
   }
 
   tbody.innerHTML = adminSubmissions.map((s,i)=>{
-    const prefsHtml = (s.preferences||[]).map((p,idx)=>`<span class="pill">${idx+1}. ${p.code}</span>`).join('');
-    const labHtml = s.labPreference ? `<span class="pill">${s.labPreference.code}</span>` : '—';
+    const prefsHtml = (s.preferences||[]).map((p,idx)=>`<span class="pill">${idx+1}. ${p.code} — ${p.name}</span>`).join('');
+    const labHtml = s.labPreference ? `<span class="pill">${s.labPreference.code} — ${s.labPreference.name}</span>` : '—';
     const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—';
     return `<tr>
       <td>${i+1}</td>
