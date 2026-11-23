@@ -174,8 +174,8 @@
       </div>
 
       <div class="card" id="labCard" style="display:none;">
-        <h2>Preferred lab</h2>
-        <p class="hint">Faculty members also choose one preferred lab.</p>
+        <h2 id="labCardTitle">Preferred lab</h2>
+        <p class="hint" id="labCardHint">Faculty members also choose one preferred lab.</p>
 
         <input type="text" class="course-search" id="labSearch" placeholder="Search lab code or name…" style="padding:10px 12px;border:1px solid var(--line);border-radius:8px;width:100%;font-size:13.5px;">
 
@@ -208,6 +208,7 @@
         <button class="export-btn" id="exportBtn">⬇ Export to Excel</button>
         <button class="close-admin" id="manageCoursesBtn">Manage courses</button>
         <button class="close-admin" id="editTextBtn">Edit page text</button>
+        <button class="close-admin" id="limitsBtn">Selection limits</button>
         <button class="close-admin" id="changePassBtn">Change password</button>
         <button class="close-admin" id="closeAdminBtn">Close</button>
       </div>
@@ -252,6 +253,41 @@
     <div class="row2" style="margin-top:12px;">
       <button id="cpCancel">Cancel</button>
       <button class="primary" id="cpSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Selection limits modal -->
+<div id="limitsModal" style="display:none;position:fixed;inset:0;background:rgba(15,27,53,.55);align-items:center;justify-content:center;z-index:110;">
+  <div style="background:#fff;padding:22px 20px;border-radius:12px;width:420px;max-width:94vw;max-height:88vh;overflow-y:auto;">
+    <h3 style="margin:0 0 6px 0;font-size:15px;">Selection limits</h3>
+    <p class="hint" style="margin:0 0 14px 0;">How many courses each group can choose. Leave a maximum blank for no upper limit.</p>
+    <div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Faculty members (FMs) — lecture courses</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;"><label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Minimum</label>
+        <input type="number" id="lmFacMin" min="1" step="1" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;box-sizing:border-box;"></div>
+      <div style="flex:1;"><label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Maximum</label>
+        <input type="number" id="lmFacMax" min="1" step="1" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;box-sizing:border-box;"></div>
+    </div>
+    <div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Faculty members (FMs) — lab courses</div>
+    <div style="display:flex;gap:10px;margin-bottom:14px;">
+      <div style="flex:1;"><label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Minimum</label>
+        <input type="number" id="lmFlMin" min="1" step="1" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;box-sizing:border-box;"></div>
+      <div style="flex:1;"><label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Maximum</label>
+        <input type="number" id="lmFlMax" min="1" step="1" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;box-sizing:border-box;"></div>
+    </div>
+    <div style="font-size:12.5px;font-weight:700;color:var(--ink-soft);margin-bottom:6px;">Lab engineers (LEs) — lab courses</div>
+    <div style="display:flex;gap:10px;margin-bottom:6px;">
+      <div style="flex:1;"><label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Minimum</label>
+        <input type="number" id="lmLabMin" min="1" step="1" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;box-sizing:border-box;"></div>
+      <div style="flex:1;"><label style="display:block;font-size:12px;color:var(--ink-soft);margin-bottom:4px;">Maximum</label>
+        <input type="number" id="lmLabMax" min="1" step="1" placeholder="No limit" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;box-sizing:border-box;"></div>
+    </div>
+    <div class="msg" id="lmMsg" style="margin-top:8px;"></div>
+    <div class="row2" style="margin-top:12px;">
+      <button id="lmReset">Reset to default</button>
+      <button id="lmCancel">Cancel</button>
+      <button class="primary" id="lmSave">Save</button>
     </div>
   </div>
 </div>
@@ -362,7 +398,7 @@
 
     <div id="editLabWrap" style="display:none;">
       <label style="display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:5px;">Lab preference</label>
-      <select id="editLabSelect" style="width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;margin-bottom:12px;"></select>
+      <div id="editLabList" style="max-height:160px;overflow-y:auto;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin-bottom:12px;"></div>
     </div>
 
     <div style="display:flex;gap:8px;margin-top:6px;">
@@ -389,12 +425,13 @@ const DESIGNATION_LIST = Object.keys(DESIGNATION_ROLE);
 
 const RULES = {
   faculty: {min:3, max:4, label:"course"},
-  lab: {min:4, max:99, label:"lab course"}
+  lab: {min:4, max:99, label:"lab course"},
+  facultyLab: {min:1, max:1, label:"lab"}   // labs a faculty member picks (separate from lecture courses)
 };
 
 let currentRole = null; // 'faculty' | 'lab' | null (no designation chosen yet)
 let selected = new Set();   // course codes (faculty: regular courses; lab: lab courses)
-let selectedLab = new Set(); // faculty's single preferred lab (max 1)
+let selectedLab = new Set(); // faculty's preferred labs (limit set in RULES.facultyLab)
 
 // ─── FIREBASE SETUP ─────────────────────────────────────────────────────────
 let FB_COL = null;
@@ -490,10 +527,10 @@ function renderCourseList(){
   const rules = RULES[currentRole];
   if(currentRole === 'lab'){
     title.textContent = 'Preferred labs';
-    hint.textContent = `Select at least ${rules.min} lab courses in order of preference. Lab engineers may only choose lab courses.`;
+    hint.textContent = (rules.max >= 99 ? `Select at least ${rules.min}` : `Select at least ${rules.min}, up to ${rules.max}`) + ` lab courses in order of preference. Lab engineers may only choose lab courses.`;
   } else {
     title.textContent = 'Preferred courses';
-    hint.textContent = `Select at least ${rules.min}, up to ${rules.max} courses in order of preference.`;
+    hint.textContent = (rules.max >= 99 ? `Select at least ${rules.min}` : `Select at least ${rules.min}, up to ${rules.max}`) + ` courses in order of preference.`;
   }
 
   const list = coursesForRole();
@@ -515,6 +552,12 @@ function renderCourseList(){
   });
 }
 
+function limitText(r, one, many){
+  if(r.max >= 99) return `at least ${r.min} ${r.min===1 ? one : many}`;
+  if(r.min === r.max) return `${r.min} ${r.min===1 ? one : many}`;
+  return `${r.min} to ${r.max} ${many}`;
+}
+
 function renderLabList(){
   if(currentRole !== 'faculty') return;
   const labCourses = ALL_COURSES.filter(c=>c.lab);
@@ -522,14 +565,17 @@ function renderLabList(){
   const filtered = q ? labCourses.filter(c => c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)) : labCourses;
 
   const container = document.getElementById('labList');
-  container.innerHTML = buildGroupedHtml(filtered, selectedLab, 1);
+  const lr = RULES.facultyLab;
+  document.getElementById('labCardTitle').textContent = lr.max === 1 ? 'Preferred lab' : 'Preferred labs';
+  document.getElementById('labCardHint').textContent = 'Faculty members also choose ' + limitText(lr, 'lab', 'labs') + '.';
+  container.innerHTML = buildGroupedHtml(filtered, selectedLab, lr.max);
 
   container.querySelectorAll('.course-item').forEach(item=>{
     item.addEventListener('click', ()=>{
       if(item.classList.contains('disabled')) return;
       const code = item.dataset.code;
       if(selectedLab.has(code)) selectedLab.delete(code);
-      else { selectedLab.clear(); selectedLab.add(code); } // single-select
+      else { if(RULES.facultyLab.max === 1) selectedLab.clear(); selectedLab.add(code); } // single-select when limit is 1
       renderLabList();
       updateCounter();
     });
@@ -556,7 +602,7 @@ function updateCounter(){
   let labOk = true;
   if(currentRole === 'faculty'){
     labBadge.textContent = `${selectedLab.size} selected`;
-    labOk = selectedLab.size === 1;
+    labOk = selectedLab.size >= RULES.facultyLab.min && selectedLab.size <= RULES.facultyLab.max;
     labBadge.classList.toggle('ok', labOk);
   }
 
@@ -581,14 +627,14 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   if(selected.size < rules.min){
     msg.className='msg error'; msg.textContent=`Please select at least ${rules.min} ${rules.label}s.`; return;
   }
-  if(currentRole === 'faculty' && selectedLab.size !== 1){
-    msg.className='msg error'; msg.textContent='Please select one preferred lab.'; return;
+  if(currentRole === 'faculty' && (selectedLab.size < RULES.facultyLab.min || selectedLab.size > RULES.facultyLab.max)){
+    msg.className='msg error'; msg.textContent='Please select ' + limitText(RULES.facultyLab, 'preferred lab', 'preferred labs') + '.'; return;
   }
 
   const prefs = Array.from(selected).map(code => ALL_COURSES.find(c=>c.code===code));
-  const labPref = currentRole === 'faculty'
-    ? ALL_COURSES.find(c=>c.code === Array.from(selectedLab)[0])
-    : null;
+  const labPrefs = currentRole === 'faculty'
+    ? Array.from(selectedLab).map(code => ALL_COURSES.find(c=>c.code===code)).filter(Boolean)
+    : [];
 
   const submitBtn = document.getElementById('submitBtn');
   submitBtn.disabled = true; submitBtn.textContent = 'Submitting…';
@@ -597,7 +643,8 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     name, designation,
     role: currentRole === 'lab' ? 'Lab Engineer' : 'Faculty Member',
     preferences: prefs.map(p=>({code:p.code, name:p.name})),
-    labPreference: labPref ? {code:labPref.code, name:labPref.name} : null,
+    labPreference: labPrefs[0] ? {code:labPrefs[0].code, name:labPrefs[0].name} : null,
+    labPreferences: labPrefs.map(l=>({code:l.code, name:l.name})),
     submittedAt: new Date().toISOString()
   };
 
@@ -1240,7 +1287,8 @@ async function loadAdminData(){
 
   tbody.innerHTML = adminSubmissions.map((s,i)=>{
     const prefsHtml = (s.preferences||[]).map((p,idx)=>`<span class="pill">${idx+1}. ${p.code} — ${p.name}</span>`).join('');
-    const labHtml = s.labPreference ? `<span class="pill">${s.labPreference.code} — ${s.labPreference.name}</span>` : '—';
+    const labList = labsOf(s);
+    const labHtml = labList.length ? labList.map(l=>`<span class="pill">${l.code} — ${l.name}</span>`).join('') : '—';
     const date = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '—';
     return `<tr>
       <td>${i+1}</td>
@@ -1292,7 +1340,7 @@ function openEditModal(id){
 
   const role = DESIGNATION_ROLE[desigSel.value] || 'faculty';
   renderEditCourseList(role, s.preferences||[]);
-  renderEditLabList(role, s.labPreference||null);
+  renderEditLabList(role, labsOf(s));
 
   document.getElementById('editModal').style.display='flex';
 }
@@ -1309,16 +1357,16 @@ function renderEditCourseList(role, selectedPrefs){
     </label>`).join('');
 }
 
-function renderEditLabList(role, currentLab){
+function renderEditLabList(role, currentLabs){
   const wrap = document.getElementById('editLabWrap');
-  const sel = document.getElementById('editLabSelect');
+  const box = document.getElementById('editLabList');
   if(role === 'faculty'){
     wrap.style.display='block';
-    const labCourses = ALL_COURSES.filter(c=>c.lab);
-    sel.innerHTML = '<option value="">— none —</option>' + labCourses.map(c=>`<option value="${c.code}" ${currentLab && currentLab.code===c.code ? 'selected':''}>${c.code} — ${c.name}</option>`).join('');
+    const have = new Set((currentLabs||[]).map(l=>l.code));
+    box.innerHTML = ALL_COURSES.filter(c=>c.lab).map(c=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer;"><input type="checkbox" value="${c.code}" ${have.has(c.code)?'checked':''}> ${c.code} — ${escapeHtml(c.name)}</label>`).join('');
   } else {
     wrap.style.display='none';
-    sel.innerHTML='';
+    box.innerHTML='';
   }
 }
 
@@ -1326,7 +1374,7 @@ document.getElementById('editDesignation').addEventListener('change', (e)=>{
   const role = DESIGNATION_ROLE[e.target.value] || 'faculty';
   const s = adminSubmissions.find(x=>x.id===editingId);
   renderEditCourseList(role, role===(s && DESIGNATION_ROLE[s.designation]) ? (s.preferences||[]) : []);
-  renderEditLabList(role, s ? s.labPreference : null);
+  renderEditLabList(role, s ? labsOf(s) : []);
 });
 
 document.getElementById('editCancelBtn').addEventListener('click', ()=>{
@@ -1346,7 +1394,7 @@ document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
   const checked = Array.from(document.getElementById('editCourseList').querySelectorAll('input[type=checkbox]:checked')).map(el=>el.value);
   const rule = RULES[role];
   if(checked.length < rule.min || checked.length > rule.max){
-    alert(`Please select between ${rule.min} and ${rule.max} ${rule.label}s.`);
+    alert(`Please select between ${rule.min} and ${Math.min(rule.max,99)===99 ? 'any number of' : rule.max} ${rule.label}s.`);
     return;
   }
   const preferences = checked.map(code=>{
@@ -1354,19 +1402,22 @@ document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
     return {code: c.code, name: c.name};
   });
 
-  let labPreference = null;
+  let labPreferences = [];
   if(role === 'faculty'){
-    const labCode = document.getElementById('editLabSelect').value;
-    if(labCode){
-      const lc = ALL_COURSES.find(x=>x.code===labCode);
-      labPreference = {code: lc.code, name: lc.name};
+    const labCodes = Array.from(document.getElementById('editLabList').querySelectorAll('input[type=checkbox]:checked')).map(el=>el.value);
+    const lr = RULES.facultyLab;
+    if(labCodes.length < lr.min || labCodes.length > lr.max){
+      alert('Please select ' + limitText(lr, 'preferred lab', 'preferred labs') + '.');
+      return;
     }
+    labPreferences = labCodes.map(code=>{ const lc = ALL_COURSES.find(x=>x.code===code); return {code: lc.code, name: lc.name}; });
   }
+  const labPreference = labPreferences[0] || null;
 
   try{
     await FB_COL.doc(editingId).update({
       name, designation, role: roleLabel,
-      preferences, labPreference
+      preferences, labPreference, labPreferences
     });
     document.getElementById('editModal').style.display='none';
     editingId = null;
@@ -1376,6 +1427,11 @@ document.getElementById('editSaveBtn').addEventListener('click', async ()=>{
     alert('Could not save changes — check your connection and try again.');
   }
 });
+
+function labsOf(s){
+  if(Array.isArray(s.labPreferences) && s.labPreferences.length) return s.labPreferences;
+  return s.labPreference ? [s.labPreference] : [];
+}
 
 function escapeHtml(str){
   const d = document.createElement('div');
@@ -1397,7 +1453,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
     (s.preferences||[]).forEach((p,idx)=>{
       row[`Preference ${idx+1}`] = `${p.code} — ${p.name}`;
     });
-    row['Lab Preference'] = s.labPreference ? `${s.labPreference.code} — ${s.labPreference.name}` : '';
+    labsOf(s).forEach((l,idx)=>{ row[`Lab Preference ${idx+1}`] = `${l.code} — ${l.name}`; });
     row['Submitted'] = s.submittedAt ? new Date(s.submittedAt).toLocaleString() : '';
     return row;
   });
@@ -1417,17 +1473,17 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
         'Submitted': s.submittedAt ? new Date(s.submittedAt).toLocaleString() : ''
       });
     });
-    if(s.labPreference){
+    labsOf(s).forEach((l,idx)=>{
       detailRows.push({
         'Name': s.name || '',
         'Designation': s.designation || '',
         'Role': s.role || '',
-        'Preference Rank': 'Lab',
-        'Course Code': s.labPreference.code,
-        'Course Name': s.labPreference.name,
+        'Preference Rank': 'Lab ' + (idx+1),
+        'Course Code': l.code,
+        'Course Name': l.name,
         'Submitted': s.submittedAt ? new Date(s.submittedAt).toLocaleString() : ''
       });
-    }
+    });
   });
 
   const wb = XLSX.utils.book_new();
@@ -1505,7 +1561,72 @@ document.getElementById('etReset').addEventListener('click', ()=>{
 });
 
 loadAdminPassword();
+// ─── EDITABLE SELECTION LIMITS ──────────────────────────────────────────────
+const DEFAULT_RULES = JSON.parse(JSON.stringify(RULES));
+const FB_LIMITS = (FB_COL ? FB_COL.firestore.collection('app_settings').doc('limits') : null);
+
+function applyLimits(l){
+  ['faculty','facultyLab','lab'].forEach(r=>{
+    const src = (l && l[r]) || {};
+    const min = parseInt(src.min,10), max = parseInt(src.max,10);
+    RULES[r].min = min >= 1 ? min : DEFAULT_RULES[r].min;
+    RULES[r].max = max >= 1 ? max : DEFAULT_RULES[r].max;
+  });
+  if(currentRole){ renderCourseList(); renderLabList(); updateCounter(); }
+}
+async function loadLimits(){
+  if(!FB_LIMITS) return;
+  try{
+    const doc = await FB_LIMITS.get();
+    if(doc.exists) applyLimits(doc.data());
+  }catch(e){ console.warn('Could not load limits.', e); }
+}
+function lmShow(text, ok){
+  const m = document.getElementById('lmMsg');
+  m.textContent = text; m.className = 'msg ' + (ok ? 'success' : 'error'); m.style.display = 'block';
+}
+document.getElementById('limitsBtn').addEventListener('click', ()=>{
+  document.getElementById('lmFacMin').value = RULES.faculty.min;
+  document.getElementById('lmFacMax').value = RULES.faculty.max >= 99 ? '' : RULES.faculty.max;
+  document.getElementById('lmFlMin').value = RULES.facultyLab.min;
+  document.getElementById('lmFlMax').value = RULES.facultyLab.max >= 99 ? '' : RULES.facultyLab.max;
+  document.getElementById('lmLabMin').value = RULES.lab.min;
+  document.getElementById('lmLabMax').value = RULES.lab.max >= 99 ? '' : RULES.lab.max;
+  const m = document.getElementById('lmMsg'); m.style.display='none'; m.textContent='';
+  document.getElementById('limitsModal').style.display = 'flex';
+});
+document.getElementById('lmCancel').addEventListener('click', ()=>{
+  document.getElementById('limitsModal').style.display = 'none';
+});
+async function saveLimits(data, okMsg){
+  try{
+    if(FB_LIMITS) await FB_LIMITS.set(data);
+    applyLimits(data);
+    lmShow(okMsg, true);
+    setTimeout(()=>{ document.getElementById('limitsModal').style.display='none'; }, 900);
+  }catch(e){
+    console.error(e);
+    lmShow('Could not save — check your connection and try again.', false);
+  }
+}
+document.getElementById('lmSave').addEventListener('click', ()=>{
+  const num = id => parseInt(document.getElementById(id).value, 10);
+  const fMin = num('lmFacMin'), fMax = num('lmFacMax') || 99;
+  const lMin = num('lmLabMin'), lMax = num('lmLabMax') || 99;
+  const flMin = num('lmFlMin'), flMax = num('lmFlMax') || 99;
+  if(!(fMin >= 1) || !(lMin >= 1) || !(flMin >= 1)){ lmShow('Minimum must be at least 1.', false); return; }
+  if(fMax < fMin){ lmShow('Faculty maximum cannot be less than its minimum.', false); return; }
+  if(flMax < flMin){ lmShow('Faculty lab maximum cannot be less than its minimum.', false); return; }
+  if(lMax < lMin){ lmShow('Lab engineer maximum cannot be less than its minimum.', false); return; }
+  saveLimits({faculty:{min:fMin, max:fMax}, facultyLab:{min:flMin, max:flMax}, lab:{min:lMin, max:lMax}}, 'Limits updated.');
+});
+document.getElementById('lmReset').addEventListener('click', ()=>{
+  if(!confirm('Reset selection limits to the defaults?')) return;
+  saveLimits({faculty:DEFAULT_RULES.faculty, facultyLab:DEFAULT_RULES.facultyLab, lab:DEFAULT_RULES.lab}, 'Limits reset.');
+});
+
 loadPageText();
+loadLimits();
 loadCourses();
 </script>
 </body>
